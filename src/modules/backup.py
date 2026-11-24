@@ -2,8 +2,10 @@ import csv
 import io
 
 from database.db import connection
+from src.config import DB_PATH
 from src.modules.audit_logging import record
 from src.modules.authorization import require
+from src.modules.encryption import decrypt
 
 
 def export_csv(actor, table, path=None):
@@ -19,6 +21,11 @@ def export_csv(actor, table, path=None):
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(columns)
-        writer.writerows(tuple(row) for row in rows)
-        record(db, actor, "CSV_EXPORT", f"table={table}; count={len(rows)}")
+        for row in rows:
+            values = dict(row)
+            if table == "patients":
+                for field in ("name", "contact", "diagnosis"):
+                    values[field] = decrypt(values[field], path or DB_PATH)
+            writer.writerow([values[column] for column in columns])
+        record(db, actor, "CSV_PREPARE", f"table={table}; count={len(rows)}")
         return output.getvalue().encode("utf-8-sig")

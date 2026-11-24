@@ -6,6 +6,7 @@ from pathlib import Path
 from database.db import connection, initialize
 from src.modules.authentication import login
 from src.modules.backup import export_csv
+from src.modules.encryption import decrypt
 from src.modules.patient_management import add_patient, anonymize_pending, list_patients, update_patient
 
 
@@ -33,6 +34,11 @@ class HospitalWorkflowTests(unittest.TestCase):
 
     def test_masking_update_and_audit(self):
         patient_id = add_patient(self.receptionist, "Jane Doe", "0300-123-4592", "Asthma", self.path)
+        with connection(self.path) as db:
+            stored = db.execute("SELECT name,contact,diagnosis FROM patients WHERE patient_id=?",
+                                (patient_id,)).fetchone()
+            self.assertTrue(all(value.startswith("fernet:") for value in stored))
+            self.assertEqual("Jane Doe", decrypt(stored["name"], self.path))
         self.assertEqual([], list_patients(self.doctor, self.path))
         self.assertEqual(1, anonymize_pending(self.admin, self.path))
         doctor_view = list_patients(self.doctor, self.path)[0]
@@ -51,6 +57,20 @@ class HospitalWorkflowTests(unittest.TestCase):
             with self.assertRaises(sqlite3.DatabaseError):
                 db.execute("DELETE FROM logs")
         self.assertIn(b"Jane Doe", export_csv(self.admin, "patients", self.path))
+
+    def test_admin_write_and_legacy_migration(self):
+        patient_id = add_patient(self.admin, "Admin Test", "03001234567", "Checkup", self.path)
+        update_patient(self.admin, patient_id, name="Updated Test", path=self.path)
+        with connection(self.path) as db:
+            db.execute("UPDATE patients SET name='Legacy Name' WHERE patient_id=?", (patient_id,))
+        initialize(self.path)
+        with connection(self.path) as db:
+            value = db.execute("SELECT name FROM patients WHERE patient_id=?", (patient_id,)).fetchone()[0]
+        self.assertTrue(value.startswith("fernet:"))
+        self.assertEqual("Legacy Name", decrypt(value, self.path))
+        self.path.with_suffix(".key").unlink()
+        with self.assertRaisesRegex(ValueError, "key is missing"):
+            initialize(self.path)
 
 
 if __name__ == "__main__":

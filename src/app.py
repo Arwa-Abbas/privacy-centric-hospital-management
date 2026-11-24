@@ -6,6 +6,7 @@ from importlib import reload
 import streamlit as st
 
 from database.db import initialize
+from src.config import PROCESS_STARTED
 from src.dashboards import admin, doctor, receptionist
 from src.modules.authentication import login, logout
 from src.modules.gdpr import NOTICE
@@ -23,9 +24,10 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
   background: #f5f8f7 !important; color: #243b37 !important;
 }
 [data-testid="stHeader"] {background: #f5f8f7 !important;}
-[data-testid="stSidebar"] {background: #fff !important; border-right: 1px solid #e4eeeb;}
+[data-testid="stSidebar"] {background: #fff !important; border-right: 1px solid #e4eeeb;
+  min-width: 260px !important; max-width: 260px !important;}
 [data-testid="stSidebar"] * {color: #243b37;}
-.block-container {padding-top: 1.35rem; max-width: 1420px;}
+.block-container {padding: 1.4rem 2rem 2rem; max-width: 1420px;}
 h1, h2, h3, h4 {color: #243b37;}
 h1 {font-size: 2rem !important; letter-spacing: -.035em; margin-bottom: .15rem !important;}
 h3 {font-size: 1.14rem !important;}
@@ -34,6 +36,8 @@ h3 {font-size: 1.14rem !important;}
   border-radius: 14px; padding: 18px 20px; box-shadow: 0 4px 16px #17473d0a;}
 [data-testid="stMetricLabel"] p {color: #738783 !important; font-size: .86rem;}
 [data-testid="stMetricValue"] {color: #203e38 !important;}
+[data-testid="stMetricValue"] > div {font-size: clamp(1.45rem, 2vw, 2.2rem) !important;
+  overflow: visible !important; white-space: normal !important;}
 [data-testid="stVerticalBlockBorderWrapper"] > div {background: #fff; border-color: #e4eeeb !important;
   border-radius: 14px !important; box-shadow: 0 4px 16px #17473d0a;}
 [data-testid="stForm"] {background: #fff; border: 1px solid #e4eeeb; border-radius: 14px;
@@ -42,22 +46,28 @@ h3 {font-size: 1.14rem !important;}
   background: #fff !important; color: #243b37 !important; border-color: #dce8e4 !important;
 }
 [data-testid="stDataFrame"] {border: 1px solid #e4eeeb; border-radius: 10px;}
+[data-testid="stDataFrame"] > div {overflow-x: auto !important;}
 div.stButton > button[kind="primary"] {background: #188c79 !important;
   border-color: #188c79 !important; color: #fff !important;}
 div.stButton > button[kind="primary"] * {color: #fff !important;}
 div.stButton > button, div.stDownloadButton > button {border-radius: 9px;}
 div[role="radiogroup"] label {border-radius: 9px; padding: .28rem .45rem;}
 div[role="radiogroup"] label:has(input:checked) {background: #e1f4ed;}
+div[role="radiogroup"] label span {white-space: normal !important; line-height: 1.25 !important;}
+@media (max-width: 900px) {
+  .block-container {padding: 1rem .8rem 1.5rem;}
+  [data-testid="stSidebar"] {min-width: 220px !important; max-width: 220px !important;}
+}
 hr {border-color: #e4eeeb;}
 </style>""", unsafe_allow_html=True)
-
-if "started" not in st.session_state:
-    st.session_state.started = time.monotonic()
 
 try:
     initialize()
 except sqlite3.Error:
     st.error("The database is unavailable. Check database folder access and try again.")
+    st.stop()
+except ValueError as exc:
+    st.error(str(exc))
     st.stop()
 
 st.sidebar.markdown("## ✚ Holistic")
@@ -86,7 +96,7 @@ if not actor:
                 st.error("Login is temporarily unavailable. Try again.")
         st.caption(NOTICE)
 else:
-    options = {"admin": ["Dashboard", "Patients", "Anonymization", "Audit log", "Backups"],
+    options = {"admin": ["Dashboard", "Patients", "Add patient", "Update patient", "Anonymization", "Audit log", "Backups"],
                "doctor": ["Dashboard", "Patients"],
                "receptionist": ["Dashboard", "Register patient", "Update patient", "Record status"]}[actor["role"]]
     page = st.sidebar.radio("Navigation", options, label_visibility="collapsed")
@@ -107,6 +117,6 @@ else:
     except sqlite3.Error:
         st.error("A database operation failed. Your changes were rolled back; please try again.")
 
-elapsed = int(time.monotonic() - st.session_state.started)
+elapsed = int(time.monotonic() - PROCESS_STARTED)
 st.divider()
-st.caption(f"Session uptime: {elapsed // 60}m {elapsed % 60}s  ·  Local demonstration system")
+st.caption(f"System uptime: {elapsed // 60}m {elapsed % 60}s  ·  Local demonstration system")
