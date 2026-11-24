@@ -1,7 +1,8 @@
+"""Role-based access control: one permission table, one `require` gate."""
 PERMISSIONS = {
-    "admin": {"raw_view", "masked_view", "create", "update", "anonymize", "logs", "export"},
+    "admin": {"raw_view", "masked_view", "create", "update", "anonymize", "logs", "export", "stats", "manage"},
     "doctor": {"masked_view"},
-    "receptionist": {"create", "update", "status_view"},
+    "receptionist": {"create", "update", "status_view", "stats"},
 }
 
 
