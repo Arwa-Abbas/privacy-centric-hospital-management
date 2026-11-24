@@ -8,8 +8,8 @@ from src.config import DB_PATH
 PREFIX = "fernet:"
 
 
-def _cipher(path=DB_PATH):
-    key_path = Path(path).with_suffix(".key")
+def _cipher(path=None):
+    key_path = Path(path or DB_PATH).with_suffix(".key")
     try:
         key = key_path.read_bytes()
     except FileNotFoundError:
@@ -25,11 +25,11 @@ def _cipher(path=DB_PATH):
         raise ValueError("The local encryption key is invalid") from exc
 
 
-def encrypt(value, path=DB_PATH):
+def encrypt(value, path=None):
     return PREFIX + _cipher(path).encrypt(value.encode("utf-8")).decode("ascii")
 
 
-def decrypt(value, path=DB_PATH):
+def decrypt(value, path=None):
     if not value.startswith(PREFIX):
         return value  # Existing plaintext records are migrated at initialization.
     try:
@@ -38,10 +38,10 @@ def decrypt(value, path=DB_PATH):
         raise ValueError("Patient data could not be decrypted; check the local key") from exc
 
 
-def migrate_plaintext(db, path=DB_PATH):
+def migrate_plaintext(db, path=None):
     """Upgrade legacy plaintext rows, preserving patient IDs and audit history."""
     rows = db.execute("SELECT patient_id,name,contact,diagnosis FROM patients").fetchall()
-    key_path = Path(path).with_suffix(".key")
+    key_path = Path(path or DB_PATH).with_suffix(".key")
     if rows and not key_path.exists() and any(
         row[field].startswith(PREFIX) for row in rows for field in ("name", "contact", "diagnosis")
     ):

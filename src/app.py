@@ -1,68 +1,37 @@
-"""Streamlit presentation layer for the assignment demo."""
+"""Streamlit entry layer: theme, consent + login gate, role-based navigation and footer."""
 import sqlite3
-import time
-from importlib import reload
 
 import streamlit as st
 
 from database.db import initialize
-from src.config import PROCESS_STARTED
+from src import ui
+from src.config import ROOT
 from src.dashboards import admin, doctor, receptionist
+from src.modules.audit_logging import record_action
 from src.modules.authentication import login, logout
-from src.modules.gdpr import NOTICE
+from src.modules.gdpr import CONSENT_TEXT, NOTICE
 
-# Streamlit reruns this entry point in the same Python process. Refresh dashboard
-# modules so a running development server does not retain their old signatures.
-admin = reload(admin)
-doctor = reload(doctor)
-receptionist = reload(receptionist)
+# role -> (dashboard module, [(page title, icon), ...]). The first page is the landing page.
+ROLE_PAGES = {
+    "admin": (admin, [("Dashboard", "dashboard"), ("Patients", "groups"), ("Add patient", "person_add"),
+                      ("Update patient", "edit_note"), ("Anonymization", "shield"), ("Data retention", "schedule"),
+                      ("Audit log", "fact_check"), ("Backups", "download")]),
+    "doctor": (doctor, [("Dashboard", "dashboard"), ("Patients", "groups")]),
+    "receptionist": (receptionist, [("Dashboard", "dashboard"), ("Register patient", "person_add"),
+                                    ("Update patient", "edit_note"), ("Record status", "list_alt")]),
+}
 
-st.set_page_config(page_title="Holistic | Hospital Dashboard", page_icon="✚", layout="wide",
-                   initial_sidebar_state="expanded")
-st.markdown("""<style>
-html, body, [data-testid="stAppViewContainer"], .stApp {
-  background: #f5f8f7 !important; color: #243b37 !important;
-}
-[data-testid="stHeader"] {background: #f5f8f7 !important;}
-[data-testid="stSidebar"] {background: #fff !important; border-right: 1px solid #e4eeeb;
-  min-width: 260px !important; max-width: 260px !important;}
-[data-testid="stSidebar"] * {color: #243b37;}
-.block-container {padding: 1.4rem 2rem 2rem; max-width: 1420px;}
-h1, h2, h3, h4 {color: #243b37;}
-h1 {font-size: 2rem !important; letter-spacing: -.035em; margin-bottom: .15rem !important;}
-h3 {font-size: 1.14rem !important;}
-[data-testid="stCaptionContainer"] p {color: #82918e !important;}
-[data-testid="stMetric"] {background: #fff; border: 1px solid #e4eeeb;
-  border-radius: 14px; padding: 18px 20px; box-shadow: 0 4px 16px #17473d0a;}
-[data-testid="stMetricLabel"] p {color: #738783 !important; font-size: .86rem;}
-[data-testid="stMetricValue"] {color: #203e38 !important;}
-[data-testid="stMetricValue"] > div {font-size: clamp(1.45rem, 2vw, 2.2rem) !important;
-  overflow: visible !important; white-space: normal !important;}
-[data-testid="stVerticalBlockBorderWrapper"] > div {background: #fff; border-color: #e4eeeb !important;
-  border-radius: 14px !important; box-shadow: 0 4px 16px #17473d0a;}
-[data-testid="stForm"] {background: #fff; border: 1px solid #e4eeeb; border-radius: 14px;
-  padding: 1.4rem; box-shadow: 0 4px 16px #17473d0a;}
-[data-testid="stTextInput"] input, [data-testid="stNumberInput"] input {
-  background: #fff !important; color: #243b37 !important; border-color: #dce8e4 !important;
-}
-[data-testid="stDataFrame"] {border: 1px solid #e4eeeb; border-radius: 10px;}
-[data-testid="stDataFrame"] > div {overflow-x: auto !important;}
-div.stButton > button[kind="primary"] {background: #188c79 !important;
-  border-color: #188c79 !important; color: #fff !important;}
-div.stButton > button[kind="primary"] * {color: #fff !important;}
-div.stButton > button, div.stDownloadButton > button {border-radius: 9px;}
-div[role="radiogroup"] label {border-radius: 9px; padding: .28rem .45rem;}
-div[role="radiogroup"] label:has(input:checked) {background: #e1f4ed;}
-div[role="radiogroup"] label span {white-space: normal !important; line-height: 1.25 !important;}
-@media (max-width: 900px) {
-  .block-container {padding: 1rem .8rem 1.5rem;}
-  [data-testid="stSidebar"] {min-width: 220px !important; max-width: 220px !important;}
-}
-hr {border-color: #e4eeeb;}
-</style>""", unsafe_allow_html=True)
+st.set_page_config(page_title="Holistic | Hospital Dashboard", page_icon="✚", layout="wide")
+ui.inject_theme()
+
+@st.cache_resource
+def setup_database():
+    """Create/seed the database once per server process instead of on every rerun."""
+    initialize(demo=True)
+
 
 try:
-    initialize()
+    setup_database()
 except sqlite3.Error:
     st.error("The database is unavailable. Check database folder access and try again.")
     st.stop()
@@ -70,17 +39,24 @@ except ValueError as exc:
     st.error(str(exc))
     st.stop()
 
-st.sidebar.markdown("## ✚ Holistic")
-st.sidebar.caption("HOSPITAL MANAGEMENT")
-st.sidebar.divider()
-actor = st.session_state.get("actor")
 
-if not actor:
-    _, center, _ = st.columns([1, 1.25, 1])
+def login_page():
+    ui.hide_sidebar()
+    _, center, _ = st.columns([1, 1.2, 1])
     with center:
-        st.markdown("### Welcome back")
+        st.image(str(ROOT / "src" / "assets" / "logo.svg"), width=190)
         st.title("Staff login")
         st.caption("Sign in to your secure hospital workspace.")
+        if not st.session_state.get("consent"):
+            st.info(CONSENT_TEXT)
+            if st.button("I understand and accept", type="primary", width="stretch"):
+                try:
+                    record_action(None, "CONSENT_ACCEPTED")
+                except sqlite3.Error:
+                    pass  # consent is still honoured for this session; the DB error surfaces at login
+                st.session_state["consent"] = True
+                st.rerun()
+            return
         with st.form("login"):
             username = st.text_input("Username", placeholder="Enter your username")
             password = st.text_input("Password", type="password", placeholder="Enter your password")
@@ -88,35 +64,47 @@ if not actor:
         if submitted:
             try:
                 actor = login(username, password)
-                if actor:
-                    st.session_state.actor = actor
-                    st.rerun()
-                st.error("Invalid username or password.")
             except sqlite3.Error:
                 st.error("Login is temporarily unavailable. Try again.")
+            else:
+                if actor:
+                    st.session_state["actor"] = actor
+                    st.rerun()
+                st.error("Invalid username or password.")
         st.caption(NOTICE)
-else:
-    options = {"admin": ["Dashboard", "Patients", "Add patient", "Update patient", "Anonymization", "Audit log", "Backups"],
-               "doctor": ["Dashboard", "Patients"],
-               "receptionist": ["Dashboard", "Register patient", "Update patient", "Record status"]}[actor["role"]]
-    page = st.sidebar.radio("Navigation", options, label_visibility="collapsed")
-    st.sidebar.divider()
-    st.sidebar.markdown(f"**{actor['username']}**")
-    st.sidebar.caption(actor["role"].title())
-    if st.sidebar.button("↪ Sign out", width="stretch"):
-        logout(actor)
-        for key in ("actor", "patient_csv", "audit_csv"):
-            st.session_state.pop(key, None)
-        st.rerun()
-    st.title(page)
-    st.caption("Welcome back. Here is what is happening with your hospital records today.")
-    try:
-        {"admin": admin.render, "doctor": doctor.render, "receptionist": receptionist.render}[actor["role"]](actor, page)
-    except (ValueError, PermissionError) as exc:
-        st.error(str(exc))
-    except sqlite3.Error:
-        st.error("A database operation failed. Your changes were rolled back; please try again.")
 
-elapsed = int(time.monotonic() - PROCESS_STARTED)
-st.divider()
-st.caption(f"System uptime: {elapsed // 60}m {elapsed % 60}s  ·  Local demonstration system")
+
+def make_page(actor, module, title, icon, default):
+    def page():
+        ui.page_header(title, f"Signed in as {actor['username']} · {actor['role'].title()}")
+        try:
+            module.render(actor, title)
+        except (ValueError, PermissionError) as exc:
+            st.error(str(exc))
+        except sqlite3.Error:
+            st.error("A database operation failed. Your changes were rolled back; please try again.")
+    page.__name__ = title.lower().replace(" ", "_")  # Streamlit derives each page's URL from the name
+    return st.Page(page, title=title, icon=f":material/{icon}:", default=default)
+
+
+actor = st.session_state.get("actor")
+if not actor:
+    st.navigation([st.Page(login_page, title="Sign in")], position="hidden").run()
+else:
+    module, pages = ROLE_PAGES[actor["role"]]
+    st.logo(str(ROOT / "src" / "assets" / "logo.svg"), size="large")
+    navigation = st.navigation([make_page(actor, module, title, icon, index == 0)
+                                for index, (title, icon) in enumerate(pages)])
+    with st.sidebar:
+        st.divider()
+        st.markdown(f"**{actor['username']}**")
+        st.caption(actor["role"].title())
+        if st.button("Sign out", icon=":material/logout:", width="stretch"):
+            try:
+                logout(actor)
+            except sqlite3.Error:
+                pass  # never trap a user in a session because the log write failed
+            st.session_state.clear()
+            st.rerun()
+    navigation.run()
+ui.footer()

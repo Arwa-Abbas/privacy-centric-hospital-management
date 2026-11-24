@@ -26,8 +26,8 @@ def verify_password(password, encoded):
 
 
 def login(username, password, path=None):
-    kwargs = {"path": path} if path is not None else {}
-    with connection(**kwargs) as db:
+    """Return the actor dict for valid credentials, otherwise None. Both outcomes are logged."""
+    with connection(path) as db:
         row = db.execute("SELECT user_id,username,password_hash,role FROM users WHERE username=? AND is_active=1",
                          (username.strip(),)).fetchone()
         if not row or not verify_password(password, row["password_hash"]):
@@ -39,6 +39,5 @@ def login(username, password, path=None):
 
 
 def logout(actor, path=None):
-    kwargs = {"path": path} if path is not None else {}
-    with connection(**kwargs) as db:
+    with connection(path) as db:
         record(db, actor, "LOGOUT")

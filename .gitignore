@@ -7,3 +7,4 @@ tmp/
 database/*.db-wal
 database/*.db-shm
 database/*.key
+database/*.db
