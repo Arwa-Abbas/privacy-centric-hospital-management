@@ -20,6 +20,13 @@ def list_logs(actor, path=None):
     kwargs = {"path": path} if path is not None else {}
     with connection(**kwargs) as db:
         rows = [dict(row) for row in db.execute(
-            "SELECT log_id,user_id,role,action,timestamp,details FROM logs ORDER BY log_id DESC LIMIT 1000")]
+            "SELECT log_id,user_id,role,action,timestamp,details FROM logs ORDER BY log_id DESC")]
         record(db, actor, "AUDIT_VIEW", f"rows={len(rows)}")
         return rows
+
+
+def record_action(actor, action, details="", path=None):
+    """Record an action that occurs in the UI, such as clicking a download."""
+    kwargs = {"path": path} if path is not None else {}
+    with connection(**kwargs) as db:
+        record(db, actor, action, details)

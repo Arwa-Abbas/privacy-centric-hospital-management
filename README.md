@@ -10,6 +10,8 @@ streamlit run Assignment4.py
 ```
 
 The database is created and seeded on first run at `database/hospital.db`.
+Use **Load fictional demo patients** on the Admin dashboard to populate a new
+database, then use **Anonymization** to make those records visible to the doctor.
 
 Run the focused tests with `python -m unittest discover -s src/tests -v`.
 
@@ -20,7 +22,11 @@ Run the focused tests with `python -m unittest discover -s src/tests -v`.
 | Receptionist | `Alice_recep` | `rec123` |
 
 Use fictional records only. These credentials are solely for the coursework demo.
-Passwords are stored as salted PBKDF2 hashes. Set `HOSPITAL_PSEUDONYM_KEY`
+Passwords are stored as salted PBKDF2 hashes. Raw patient fields use Fernet
+encryption. The local key is saved as `database/hospital.key` and ignored by Git.
+Keep that key with any SQLite backup; losing it makes encrypted records unreadable.
+Admin CSV exports contain decrypted patient data and must be stored securely.
+Set `HOSPITAL_PSEUDONYM_KEY`
 before first run for a private stable pseudonym key; keep its value unchanged.
 
 Receptionist registers and updates records without reading stored sensitive

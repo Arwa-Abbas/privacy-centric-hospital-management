@@ -26,3 +26,6 @@ def initialize(path=DB_PATH):
         db.executescript(schema)
     from database.seed import seed_users
     seed_users(path)
+    from src.modules.encryption import migrate_plaintext
+    with connection(path) as db:
+        migrate_plaintext(db, path)

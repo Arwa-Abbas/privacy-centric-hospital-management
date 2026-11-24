@@ -6,3 +6,4 @@ __pycache__/
 tmp/
 database/*.db-wal
 database/*.db-shm
+database/*.key

@@ -13,14 +13,14 @@ The implementation should be easy to demonstrate and explain. It is an education
 - SQLite
 - Standard-library security utilities (`hashlib`, `hmac`, `secrets`)
 - Pandas only where it simplifies Streamlit tables and CSV export
-- Optional `cryptography` dependency only if the Fernet bonus is attempted
+- `cryptography` for Fernet protection of raw patient fields
 
 ### Recommended implementation choices
 
 - Use SQLite rather than MySQL because it satisfies the assignment and needs no external server.
 - Submit `Assignment4.py` as the required `.py` file and Streamlit entry point.
 - Use salted PBKDF2 password hashes; never store the sample plaintext passwords from the assignment.
-- Implement required masking/pseudonymization first. Treat Fernet encryption, charts, retention, and consent as optional bonus work.
+- Store raw patient fields encrypted with a local Fernet key and expose masked/pseudonymized views by role.
 - Keep all authorization checks in Python services, not only in hidden Streamlit buttons.
 
 ## 2. Scope and Boundaries
@@ -124,7 +124,7 @@ Do not overstate compliance. A real deployment would also require a lawful basis
 
 ### 3.6 Optional bonus, attempted only after required work passes
 
-- Fernet encryption for reversible protection of raw patient fields.
+- Fernet encryption for reversible protection of raw patient fields is now implemented in the codebase.
 - Real-time activity graph, such as actions per day.
 - Data-retention timer.
 - User consent/privacy notice banner.
@@ -148,7 +148,7 @@ A4/
 |-- src/
 |   |-- app.py                 # Streamlit entry flow and styling
 |   |-- config.py              # Paths and configuration
-|   |-- modules/               # Auth, RBAC, anonymization, patient operations, audit, CSV
+|   |-- modules/               # Auth, RBAC, Fernet, anonymization, patients, audit, CSV
 |   |-- dashboards/            # Admin, doctor, and receptionist Streamlit views
 |   |-- utils/                 # Input validation helpers
 |   `-- tests/                 # Security and workflow tests
@@ -402,7 +402,7 @@ Attempt only if Phases 0-6 are complete:
 1. Add one simple activity-per-day chart from audit counts.
 2. Add a concise consent/privacy notice banner.
 3. Add a configurable retention indicator or cleanup workflow with audit logging.
-4. Add Fernet encryption only if key loading, migration, failure handling, and demonstration can be completed safely.
+4. Verify Fernet key backup and plaintext-row migration in the implemented code.
 
 **Exit condition:** bonus work does not weaken or complicate required functionality.
 
@@ -498,7 +498,7 @@ No complex deployment diagram is necessary. The supplied assignment and referenc
 | Logs leak patient data or passwords | Allowlisted actions and sanitized ID/count-only details |
 | CSV backup leaks sensitive data | Admin-only permission check immediately before retrieval/download |
 | App crashes on a locked/missing database | Initialize safely, use timeout/context managers, catch and report failures |
-| Bonus encryption adds key failures late | Keep Fernet optional and implement only after the base rubric passes |
+| Local Fernet key is lost | Keep `database/hospital.key` with SQLite backups; it is ignored by Git |
 | Report claims legal compliance too broadly | State that the prototype demonstrates GDPR-aligned controls within assignment scope |
 
 ## 16. Definition of Done
