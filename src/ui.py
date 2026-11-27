@@ -98,5 +98,4 @@ def alert(text, kind="ok"):
 def footer():
     elapsed = int(time.monotonic() - PROCESS_STARTED)
     st.divider()
-    st.caption(f"System uptime: {elapsed // 60}m {elapsed % 60}s  ·  Last sync: {now():%H:%M:%S} UTC  ·  "
-               "Local demonstration system")
+    st.caption(f"System uptime: {elapsed // 60}m {elapsed % 60}s  ·  Last sync: {now():%H:%M:%S} UTC")

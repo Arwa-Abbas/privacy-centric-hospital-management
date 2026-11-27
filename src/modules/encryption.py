@@ -38,6 +38,18 @@ def decrypt(value, path=None):
         raise ValueError("Patient data could not be decrypted; check the local key") from exc
 
 
+def encrypt_bytes(data, path=None):
+    """Fernet-encrypt a whole file (used for encrypted backups)."""
+    return _cipher(path).encrypt(data)
+
+
+def decrypt_bytes(token, path=None):
+    try:
+        return _cipher(path).decrypt(token)
+    except InvalidToken as exc:
+        raise ValueError("Backup could not be decrypted; it is corrupt or the key does not match") from exc
+
+
 def migrate_plaintext(db, path=None):
     """Upgrade legacy plaintext rows, preserving patient IDs and audit history."""
     rows = db.execute("SELECT patient_id,name,contact,diagnosis FROM patients").fetchall()

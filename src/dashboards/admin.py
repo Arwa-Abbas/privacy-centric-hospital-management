@@ -6,7 +6,7 @@ from database.seed import seed_demo_patients
 from src import ui
 from src.dashboards.forms import add_form, update_form
 from src.modules.audit_logging import activity_summary, list_logs, record_action
-from src.modules.backup import export_csv
+from src.modules.backup import export_csv, export_encrypted
 from src.modules.gdpr import RETENTION_DAYS, retention_end
 from src.modules.patient_management import anonymize_pending, erase_expired, list_patients, patient_stats
 
@@ -150,17 +150,23 @@ def _audit_log(actor, visit):
 
 
 def _backups(actor, visit):
-    st.warning("Patient exports contain decrypted personal data. Store them securely and delete after use.")
-    for column, (table, title, filename) in zip(st.columns(2), (
-            ("patients", "Patient records", "patients.csv"), ("logs", "Audit log", "audit_log.csv"))):
+    st.warning("Plain CSV exports contain decrypted personal data. Prefer the encrypted backup; "
+               "it can only be restored with this system's key file (database/hospital.key).")
+    for column, (table, title) in zip(st.columns(2), (("patients", "Patient records"), ("logs", "Audit log"))):
         with column, st.container(border=True):
             st.subheader(title)
-            st.caption(f"Download a CSV copy of the {title.lower()} for recovery.")
-            if st.button(f"Prepare {title.lower()} CSV", key=f"prepare_{table}"):
-                st.session_state[f"{table}_csv"] = export_csv(actor, table)
-            if f"{table}_csv" in st.session_state:
-                st.download_button(f"Download {filename}", st.session_state[f"{table}_csv"], filename, "text/csv",
-                                   on_click=record_action, args=(actor, "CSV_DOWNLOAD", f"table={table}"))
+            choice = st.radio("Format", ("Encrypted backup (.enc)", "Plain CSV"), key=f"format_{table}", horizontal=True)
+            encrypted = choice.startswith("Encrypted")
+            if st.button(f"Prepare {title.lower()} export", key=f"prepare_{table}"):
+                data = (export_encrypted if encrypted else export_csv)(actor, table)
+                st.session_state[f"{table}_export"] = (data, f"{table}.{'enc' if encrypted else 'csv'}", encrypted)
+            if f"{table}_export" in st.session_state:
+                data, filename, was_encrypted = st.session_state[f"{table}_export"]
+                st.download_button(f"Download {filename}", data, filename,
+                                   "application/octet-stream" if was_encrypted else "text/csv",
+                                   on_click=record_action,
+                                   args=(actor, "CSV_DOWNLOAD", f"table={table}; encrypted={was_encrypted}"))
+    st.caption("Restore an encrypted backup to CSV with:  python -m src.modules.backup patients.enc")
 
 
 PAGES = {
