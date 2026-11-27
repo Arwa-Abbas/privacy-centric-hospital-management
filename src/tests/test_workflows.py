@@ -7,7 +7,7 @@ from database.db import connection, initialize
 from database.seed import seed_demo_patients
 from src.modules.audit_logging import activity_summary, list_logs
 from src.modules.authentication import login
-from src.modules.backup import export_csv
+from src.modules.backup import decrypt_backup, export_csv, export_encrypted
 from src.modules.encryption import decrypt
 from src.modules.patient_management import (add_patient, anonymize_pending, erase_expired, list_patients,
                                             patient_stats, update_patient)
@@ -19,9 +19,9 @@ class HospitalWorkflowTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "hospital.db"
         initialize(self.path)
-        self.admin = login("admin", "admin@123", self.path)
-        self.doctor = login("arwaabbas", "arwa@123", self.path)
-        self.receptionist = login("sarakhan", "sara@123", self.path)
+        self.admin = login("admin", "admin123", self.path)
+        self.doctor = login("Dr. Bob", "doc123", self.path)
+        self.receptionist = login("Alice_recep", "rec123", self.path)
 
     def tearDown(self):
         self.temp.cleanup()
@@ -30,7 +30,7 @@ class HospitalWorkflowTests(unittest.TestCase):
         self.assertIsNone(login("admin", "wrong", self.path))
         with connection(self.path) as db:
             stored = db.execute("SELECT password_hash FROM users WHERE username='admin'").fetchone()[0]
-        self.assertNotIn("admin@123", stored)
+        self.assertNotIn("admin123", stored)
         with self.assertRaises(PermissionError):
             export_csv(self.doctor, "patients", self.path)
         with self.assertRaises(PermissionError):
@@ -75,6 +75,17 @@ class HospitalWorkflowTests(unittest.TestCase):
         self.path.with_suffix(".key").unlink()
         with self.assertRaisesRegex(ValueError, "key is missing"):
             initialize(self.path)
+
+    def test_encrypted_backup_round_trip(self):
+        add_patient(self.admin, "Jane Doe", "0300-123-4592", "Asthma", self.path)
+        backup = export_encrypted(self.admin, "patients", self.path)
+        self.assertNotIn(b"Jane Doe", backup)
+        self.assertEqual(export_csv(self.admin, "patients", self.path).count(b"Jane Doe"),
+                         decrypt_backup(backup, self.path).count(b"Jane Doe"))
+        with self.assertRaises(PermissionError):
+            export_encrypted(self.doctor, "patients", self.path)
+        with self.assertRaises(ValueError):
+            decrypt_backup(b"garbage", self.path)
 
     def test_validation_rejects_bad_input(self):
         for bad in (("", "0300-123-4592", "Flu"), ("Jane", "abcd", "Flu"), ("Jane", "12", "Flu")):

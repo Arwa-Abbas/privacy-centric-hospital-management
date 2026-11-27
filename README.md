@@ -6,6 +6,8 @@ A Streamlit + SQLite hospital dashboard that protects patient data with encrypti
 role-based access control (RBAC) and an append-only audit trail, following GDPR principles
 (purpose limitation, data minimisation, storage limitation, accountability).
 
+**Demo video:** [Watch the walkthrough on Google Drive](https://drive.google.com/file/d/1OENClL9wA8BoRMWnq7k8MXqJ2IRciKdB/view?usp=sharing)
+
 > All patient data in this project is **fictional**. The demo credentials are for coursework only.
 
 ---
@@ -17,7 +19,10 @@ pip install -r requirements.txt
 streamlit run Assignment4.py
 ```
 
-The app opens at <http://localhost:8501>. On first run it creates `database/hospital.db`,
+The app opens at <http://localhost:8501>. `Assignment4.py` is the **single-file edition**: all logic in
+one commented file, organised in numbered sections (database, RBAC, confidentiality, integrity,
+availability, GDPR, UI). The same logic is also available as a **modular edition** (`src/`, `database/`),
+launched with `streamlit run run_modular.py`. Both editions share the same database and key. On first run it creates `database/hospital.db`,
 the encryption key `database/hospital.key`, the three user accounts, 18 fictional patients
 and a week of sample activity so every chart has data.
 
@@ -34,9 +39,9 @@ Reset to a clean demo: close the app, delete **both** `database/hospital.db` and
 
 | Role | Username | Password | Can do |
 |---|---|---|---|
-| Admin | `admin` | `admin@123` | Raw + anonymized data, anonymize, retention, audit log, CSV export |
-| Doctor | `arwaabbas` | `arwa@123` | View **anonymized** records only |
-| Receptionist | `sarakhan` | `sara@123` | Register/update patients; never sees names, contacts or diagnoses |
+| Admin | `admin` | `admin123` | Raw + anonymized data, anonymize, retention, audit log, CSV export |
+| Doctor | `Dr. Bob` | `doc123` | View **anonymized** records only |
+| Receptionist | `Alice_recep` | `rec123` | Register/update patients; never sees names, contacts or diagnoses |
 
 ---
 
@@ -63,7 +68,7 @@ Reset to a clean demo: close the app, delete **both** `database/hospital.db` and
 | Control | Where |
 |---|---|
 | `try/except` around login and database operations; failed operations roll back and show a friendly message | `src/app.py`, `database/db.py` |
-| **CSV backup/export** of patients and audit log (admin; each download is logged) | `src/modules/backup.py` |
+| **Backup/export** of patients and audit log as plain CSV or as a **Fernet-encrypted `.enc` file** (admin; each download is logged). Restore with `python Assignment4.py --decrypt patients.enc` | `src/modules/backup.py` |
 | System **uptime and last-sync time** in the footer of every page | `src/ui.py` |
 | Database set-up runs once per server start, so the dashboard stays responsive | `src/app.py` |
 
@@ -79,7 +84,8 @@ Reset to a clean demo: close the app, delete **both** `database/hospital.db` and
 ## Project structure
 
 ```
-Assignment4.py            Entry point (maps each assignment step to its file)
+Assignment4.py            Single-file edition (everything in numbered, commented sections)
+run_modular.py            Launcher for the modular edition below
 database/
   schema.sql              Tables, constraints, append-only triggers
   db.py                   Connection context manager (commit / rollback)
@@ -114,6 +120,6 @@ docs/IMPLEMENTATION_PLAN.md   Original planning notes
 
 - `HOSPITAL_PSEUDONYM_KEY` (optional env var, see `.env.example`): private key for pseudonyms. Set it before the first run and never change it afterwards.
 - `database/hospital.key` is required to read encrypted data. Keep it with any copy of the database; it is excluded from Git.
-- Admin CSV exports contain decrypted data and must be stored securely.
+- Plain CSV exports contain decrypted data; prefer the encrypted backup, which can only be restored with `database/hospital.key`.
 - Timestamps are stored and shown in UTC.
 - This is a coursework prototype demonstrating GDPR-aligned controls; it is not a production medical-records system or legal compliance advice.

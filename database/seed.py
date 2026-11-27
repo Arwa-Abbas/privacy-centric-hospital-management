@@ -9,9 +9,9 @@ from src.modules.authorization import require
 from src.modules.encryption import encrypt
 from src.utils.dates import now
 
-ACCOUNTS = (("admin", "admin@123", "admin"),
-            ("arwaabbas", "arwa@123", "doctor"),
-            ("sarakhan", "sara@123", "receptionist"))
+ACCOUNTS = (("admin", "admin123", "admin"),
+            ("Dr. Bob", "doc123", "doctor"),
+            ("Alice_recep", "rec123", "receptionist"))
 
 # (name, contact, diagnosis, days since registration). The last two exceed the retention period.
 DEMO_PATIENTS = (

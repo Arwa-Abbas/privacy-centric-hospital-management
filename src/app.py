@@ -9,7 +9,7 @@ from src.config import ROOT
 from src.dashboards import admin, doctor, receptionist
 from src.modules.audit_logging import record_action
 from src.modules.authentication import login, logout
-from src.modules.gdpr import CONSENT_TEXT, NOTICE
+from src.modules.gdpr import CONSENT_TEXT
 
 # role -> (dashboard module, [(page title, icon), ...]). The first page is the landing page.
 ROLE_PAGES = {
@@ -71,7 +71,6 @@ def login_page():
                     st.session_state["actor"] = actor
                     st.rerun()
                 st.error("Invalid username or password.")
-        st.caption(NOTICE)
 
 
 def make_page(actor, module, title, icon, default):
